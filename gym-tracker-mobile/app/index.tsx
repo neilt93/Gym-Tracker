@@ -59,8 +59,8 @@ export default function HomeScreen() {
   const fetchData = async () => {
     try {
       const [workoutsRes, mealsRes] = await Promise.all([
-        fetch('http://localhost:3000/api/workouts'),
-        fetch('http://localhost:3000/api/meals'),
+        fetch('http://10.16.67.229:3000/api/workouts'),
+        fetch('http://10.16.67.229:3000/api/meals'),
       ]);
       
       if (!workoutsRes.ok || !mealsRes.ok) throw new Error('Failed to fetch data');
@@ -151,7 +151,7 @@ export default function HomeScreen() {
                 <Paragraph style={styles.actionCardText}>
                   Track your strength training and cardio sessions
                 </Paragraph>
-                <Text style={styles.emoji}>💪</Text>
+
               </Card.Content>
             </LinearGradient>
           </Card>
@@ -167,7 +167,7 @@ export default function HomeScreen() {
                 <Paragraph style={styles.actionCardText}>
                   Track your meals and macros
                 </Paragraph>
-                <Text style={styles.emoji}>🍎</Text>
+
               </Card.Content>
             </LinearGradient>
           </Card>

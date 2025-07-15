@@ -26,18 +26,39 @@ export default function RootLayout() {
             options={{ 
               title: 'Add Workout',
               presentation: 'modal',
+              headerStyle: {
+                backgroundColor: '#667eea',
+              },
+              headerTintColor: '#fff',
+              headerTitleStyle: {
+                fontWeight: 'bold',
+              },
             }} 
           />
           <Stack.Screen 
             name="dashboard" 
             options={{ 
               title: 'Dashboard',
+              headerStyle: {
+                backgroundColor: '#667eea',
+              },
+              headerTintColor: '#fff',
+              headerTitleStyle: {
+                fontWeight: 'bold',
+              },
             }} 
           />
           <Stack.Screen 
             name="meals" 
             options={{ 
               title: 'Food Tracker',
+              headerStyle: {
+                backgroundColor: '#4CAF50',
+              },
+              headerTintColor: '#fff',
+              headerTitleStyle: {
+                fontWeight: 'bold',
+              },
             }} 
           />
         </Stack>
