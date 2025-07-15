@@ -8,40 +8,116 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String?
-  workouts  Workout[]
-  createdAt DateTime @default(now())
+  id              String           @id @default(cuid())
+  name            String
+  email           String           @unique
+  goals           String[]
+  experienceLevel String
+  preferredUnit   String
+  height          Float
+  weight          Float
+  age             Int
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  workouts        Workout[]
+  bodyMeasurements BodyMeasurement[]
+  meals           Meal[]
+  progressPhotos  ProgressPhoto[]
+  personalRecords PersonalRecord[]
 }
 
 model Workout {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  startedAt DateTime
-  sets      Set[]
+  id          String         @id @default(uuid())
+  name        String         // e.g., "Push Day", "Pull Day"
+  startedAt   DateTime       @default(now())
+  endedAt     DateTime?
+  user        User           @relation(fields: [userId], references: [id])
+  userId      String
+  exerciseSets ExerciseSet[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 }
 
-model Set {
-  id         String   @id @default(uuid())
-  workoutId  String
-  workout    Workout  @relation(fields: [workoutId], references: [id])
-  exerciseId String
-  exercise   Exercise @relation(fields: [exerciseId], references: [id])
-  reps       Int
-  weight     Float
-  rpe        Float?
-  setIndex   Int
+model ExerciseSet {
+  id          String   @id @default(uuid())
+  workout     Workout  @relation(fields: [workoutId], references: [id])
+  workoutId   String
+  exercise    Exercise @relation(fields: [exerciseId], references: [id])
+  exerciseId  String
+  reps        Int
+  weight      Float
+  rpe         Int?
+  duration    Float?   // for cardio exercises (in minutes)
+  intensity   Float?   // for cardio exercises (1-10 scale)
+  setIndex    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Exercise {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  muscleGroup MuscleGroup
-  sets        Set[]    // <-- required reverse relation
+  id          String         @id @default(uuid())
+  name        String         @unique
+  description   String?
+  difficulty    Difficulty    @default(INTERMEDIATE)
+  equipment     String?
+  videoUrl      String?
+  muscleGroup   MuscleGroup
+  targetMuscles String[]      // array of target muscles
+  exerciseSets ExerciseSet[]
+  personalRecords PersonalRecord[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
+model ProgressPhoto {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  imageUrl  String
+  date      DateTime
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BodyMeasurement {
+  id        String   @id @default(cuid())
+  weight    Float
+  timestamp DateTime
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model PersonalRecord {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id])
+  weight     Float
+  reps       Int
+  date       DateTime
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Meal {
+  id        String   @id @default(cuid())
+  name      String
+  image     String?  // Base64 encoded image
+  protein   Float
+  carbs     Float
+  fat       Float
+  calories  Int
+  timestamp DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
 
 enum MuscleGroup {
   CHEST
@@ -51,4 +127,37 @@ enum MuscleGroup {
   ARMS
   CORE
   FULL_BODY
+}
+
+enum WorkoutStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum WorkoutType {
+  STRENGTH
+  CARDIO
+  HIIT
+  FLEXIBILITY
+  RECOVERY
+}
+
+enum Difficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum ExperienceLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum Unit {
+  KG
+  LBS
 }

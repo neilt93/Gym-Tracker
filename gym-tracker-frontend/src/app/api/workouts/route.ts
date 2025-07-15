@@ -1,46 +1,99 @@
 // src/app/api/workouts/route.ts
 import { PrismaClient } from '@prisma/client'
 import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { TEST_USER_ID } from '@/lib/constants'
 
-const prisma = new PrismaClient()
+const prismaClient = new PrismaClient()
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json()           // { userId, exerciseName, reps, weight }
+    const body = await req.json(); // { userId, name, startedAt, exerciseSets: [{ exerciseName, muscleGroup, workoutType, reps, weight, rpe, duration, intensity, setIndex }] } 
 
-    // 1️⃣  create (or reuse) the exercise by name
-    const exercise = await prisma.exercise.upsert({
-      where: { name: body.exerciseName },
-      update: {},                           // nothing to update if it exists
+    // Update the user's updatedAt field with NYC time
+    const nycTime = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
+    console.log('NYC time:', nycTime);
+    
+    // Ensure test user exists
+    const user = await prismaClient.user.upsert({
+      where: { id: body.userId },
+      update: { updatedAt: new Date(nycTime) },
       create: {
-        name: body.exerciseName,
-        muscleGroup: 'FULL_BODY',           // TODO: change or accept from body
+        id: body.userId,
+        name: 'Test User',
+        email: 'test@example.com',
+        experienceLevel: 'BEGINNER',
+        goals: ['Build Muscle', 'Improve Strength'],
+        preferredUnit: 'KG',
+        height: 175,
+        weight: 75,
+        age: 25,
       },
-    })
+    });
 
-    // 2️⃣  create the workout + set linked to that exercise
-    const workout = await prisma.workout.create({
+    // Create the workout
+    const workout = await prismaClient.workout.create({
       data: {
-        startedAt: new Date(),
+        name: body.name,
+        startedAt: body.startedAt ? new Date(body.startedAt) : new Date(),
         user: { connect: { id: body.userId } },
-        sets: {
-          create: [
-            {
+        exerciseSets: {
+          create: await Promise.all(body.exerciseSets.map(async (set: any) => {
+            // Find or create the exercise
+            const exercise = await prismaClient.exercise.upsert({
+              where: { name: set.exerciseName },
+              update: {},
+              create: {
+                name: set.exerciseName,
+                muscleGroup: set.muscleGroup,
+              },
+            });
+            return {
               exercise: { connect: { id: exercise.id } },
-              reps: body.reps,
-              weight: body.weight,
-              rpe: null,
-              setIndex: 1,
-            },
-          ],
+              reps: set.reps,
+              weight: set.weight,
+              rpe: set.rpe,
+              duration: set.duration,
+              intensity: set.intensity,
+              setIndex: set.setIndex,
+            };
+          })),
         },
       },
-      include: { sets: true },
-    })
+      include: { exerciseSets: true },
+    });
 
-    return NextResponse.json(workout)
+    return NextResponse.json(workout);
   } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Failed' }, { status: 500 })
+    console.error(err);
+    return NextResponse.json({ error: 'Failed to create workout' }, { status: 500 });
+  }
+}
+
+export async function GET() {
+  try {
+    const workouts = await prisma.workout.findMany({
+      where: {
+        userId: TEST_USER_ID,
+      },
+      include: {
+        exerciseSets: {
+          include: {
+            exercise: true,
+          },
+        },
+      },
+      orderBy: {
+        startedAt: 'desc',
+      },
+    });
+
+    return NextResponse.json(workouts);
+  } catch (error) {
+    console.error('Error fetching workouts:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch workouts' },
+      { status: 500 }
+    );
   }
 }
