@@ -24,6 +24,10 @@ model User {
   meals           Meal[]
   progressPhotos  ProgressPhoto[]
   personalRecords PersonalRecord[]
+  journalEntries  JournalEntry[]
+  aiInteractions AIInteraction[]
+  analyticsData   AnalyticsData[]
+  aiChats         AIChat[]
 }
 
 model Workout {
@@ -107,7 +111,7 @@ model PersonalRecord {
 model Meal {
   id        String   @id @default(cuid())
   name      String
-  image     String?  // Base64 encoded image
+  image     String?  // Base64ed image
   protein   Float
   carbs     Float
   fat       Float
@@ -117,6 +121,67 @@ model Meal {
   user      User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
+}
+
+model JournalEntry {
+  id        String   @id @default(cuid())
+  content   String
+  goals     String?
+  notes     String?
+  timestamp DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([timestamp])
+}
+
+model AIInteraction {
+  id          String   @id @default(cuid())
+  type        String   // workout_tips", mood_insights",journal_analysis",nutrition_advice"
+  userInput   String
+  aiResponse  String
+  timestamp   DateTime @default(now())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([timestamp])
+}
+
+model AnalyticsData {
+  id                String   @id @default(cuid())
+  date              DateTime
+  totalCalories     Int?
+  totalProtein      Float?
+  totalCarbs        Float?
+  totalFat          Float?
+  workoutDuration   Int?     // minutes
+  workoutIntensity  Float?   // average intensity
+  moodScore         Float?   // average mood
+  energyScore       Float?   // average energy
+  stressScore       Float?   // average stress
+  sleepHours        Float?   // average sleep
+  weight            Float?
+  notes             String?
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+}
+
+model AIChat {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  question  String
+  response  String
+  timestamp DateTime @default(now())
+
+  @@index([userId])
+  @@index([timestamp])
 }
 
 enum MuscleGroup {

@@ -10,6 +10,7 @@
     "seed:test-user": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed-test-user.ts"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.4",
     "@prisma/client": "^6.8.2",
     "@supabase/supabase-js": "^2.50.0",
     "@tailwindcss/cli": "^4.1.8",

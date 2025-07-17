@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { TEST_USER_ID } from '@/lib/constants'
+import { prisma } from '@/lib/prisma'
 
 // OpenAI API configuration
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY
@@ -60,33 +61,30 @@ Please provide a personalized workout tip or advice based on this information. I
   return await callOpenAI(messages)
 }
 
-const getMoodInsights = async (mood: string, userData: any) => {
-  const recentWorkouts = userData.recentWorkouts || []
-  const workoutFrequency = userData.workoutFrequency || 0
-
+const analyzeJournal = async (journalText: string) => {
   const messages = [
     {
       role: 'system',
-      content: `You are an empathetic fitness coach who understands how mood affects workout performance. Provide personalized workout recommendations based on the user's current mood and fitness history. Keep responses encouraging and practical (2-3 sentences).`
+      content: `You are a helpful fitness coach analyzing a user's journal entry. Provide insights, encouragement, and suggestions based on their thoughts and feelings. Keep responses positive and actionable (2-3ntences).`
     },
     {
       role: 'user',
-      content: `I'm feeling ${mood} today. My recent workout history shows ${workoutFrequency} total workouts. Based on how I'm feeling, what type of workout would you recommend for me today? Consider my mood and suggest appropriate intensity, exercise types, or even rest if needed.`
+      content: `Please analyze this journal entry and provide helpful insights: ${journalText}`
     }
   ]
 
   return await callOpenAI(messages)
 }
 
-const analyzeJournal = async (journalText: string) => {
+const generateJournalSummary = async (journalText: string) => {
   const messages = [
     {
       role: 'system',
-      content: `You are a supportive fitness coach analyzing a user's journal entry. Provide encouraging feedback and fitness-related insights. Focus on motivation, progress recognition, and gentle suggestions. Keep responses warm and supportive (2-3 sentences).`
+      content: `You are creating a concise summary of a journal entry. Create a brief, informative summary that captures the key points and mood in 1-2entences. Focus on the main themes, goals, or insights mentioned.`
     },
     {
       role: 'user',
-      content: `Please analyze this fitness journal entry and provide encouraging feedback: "${journalText}"`
+      content: `Please create a concise summary of this journal entry: ${journalText}`
     }
   ]
 
@@ -99,6 +97,57 @@ export async function POST(request: NextRequest) {
     const { type, data } = body
 
     switch (type) {
+      case 'chat': {
+        const userId = data?.userId || TEST_USER_ID
+        const question = data?.question?.trim()
+        if (!question) {
+          return NextResponse.json({ success: false, error: 'No question provided' }, { status: 400 })
+        }
+        // Fetch recent data for context
+        const [journals, workouts, meals] = await Promise.all([
+          prisma.journalEntry.findMany({ where: { userId }, orderBy: { timestamp: 'desc' }, take: 5 }),
+          prisma.workout.findMany({
+            where: { userId },
+            include: { exerciseSets: { include: { exercise: true } } },
+            orderBy: { startedAt: 'desc' },
+            take: 5,
+          }),
+          prisma.meal.findMany({ where: { userId }, orderBy: { timestamp: 'desc' }, take: 5 }),
+        ])
+        // Build context string
+        const context = `Recent Journals:\n${journals.map(j => `- ${j.content}`).join('\n') || 'None'}\n\nRecent Workouts:\n${workouts.map(w => `- ${w.name} (${w.exerciseSets.length} sets)`).join('\n') || 'None'}\n\nRecent Meals:\n${meals.map(m => `- ${m.name} (${m.calories} kcal)`).join('\n') || 'None'}`
+        const messages = [
+          {
+            role: 'system',
+            content: `You are a helpful fitness assistant. Use the user's question and their recent journals, workouts, and meals to provide a personalized, actionable, and encouraging response. Be concise and friendly.`
+          },
+          {
+            role: 'user',
+            content: `User question: ${question}\n\n${context}`
+          }
+        ]
+        const responseText = await callOpenAI(messages)
+        // Save to chat history
+        await prisma.aIChat.create({
+          data: {
+            userId,
+            question,
+            response: responseText,
+          },
+        })
+        // Return updated chat history
+        const chatHistory = await prisma.aIChat.findMany({
+          where: { userId },
+          orderBy: { timestamp: 'desc' },
+          take: 20,
+        })
+        return NextResponse.json({
+          success: true,
+          response: responseText,
+          chatHistory,
+          timestamp: new Date().toISOString(),
+        })
+      }
       case 'workout_tips':
         const tips = await getWorkoutTips(data)
         return NextResponse.json({ 
@@ -107,19 +156,19 @@ export async function POST(request: NextRequest) {
           timestamp: new Date().toISOString()
         })
 
-      case 'mood_insights':
-        const insights = await getMoodInsights(data.mood, data.userData)
-        return NextResponse.json({ 
-          success: true, 
-          response: insights,
-          timestamp: new Date().toISOString()
-        })
-
       case 'journal_analysis':
         const analysis = await analyzeJournal(data.text)
         return NextResponse.json({ 
           success: true, 
           response: analysis,
+          timestamp: new Date().toISOString()
+        })
+
+      case 'journal_summary':
+        const summary = await generateJournalSummary(data.text)
+        return NextResponse.json({ 
+          success: true, 
+          response: summary,
           timestamp: new Date().toISOString()
         })
 
@@ -135,7 +184,6 @@ export async function POST(request: NextRequest) {
     // Fallback responses if OpenAI fails
     const fallbackResponses = {
       workout_tips: "Focus on consistency in your workouts. Start with compound movements and gradually increase intensity as you build strength.",
-      mood_insights: "Listen to your body today. Adjust your workout intensity based on how you feel - it's perfectly okay to take it easy when needed.",
       journal_analysis: "Thank you for sharing your thoughts! Every entry helps track your fitness journey. Keep up the great work!"
     }
     
